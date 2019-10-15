@@ -25,34 +25,32 @@ class WordFrequencyApplicationAcceptance extends FlatSpec with Matchers with For
   override val container = KafkaContainer()
   private val topic = "word-frequency"
 
-  "Word frequency counter" should "find the top 25 most used words in the messages read from a Kafka topic" in {
-    val bootstrapServers = container.kafkaContainer.getBootstrapServers
-
-    val producer = topicProducer(bootstrapServers)
-    for (line <- pathToFile andThen readFile apply "data/the-fall-of-the-house-of-usher.txt") {
-      producer.send(new ProducerRecord[String, String](topic, line))
-        .get(1000L, TimeUnit.MILLISECONDS)
-    }
-    producer.close(Duration.ofMillis(1000L))
+  "Word frequency counter" should "find the top 25 most used words a text read from Kafka" in {
+    sendTextToKafka("data/the-fall-of-the-house-of-usher.txt", container.kafkaContainer.getBootstrapServers)
 
     WordFrequencyApplication.doRun(sc, Array(
-      bootstrapServers,
+      container.kafkaContainer.getBootstrapServers,
       topic))
 
 
-    //
-    //
-    //
     //      val conf = sc.hadoopConfiguration
     //      println(s"INSIDE: config = $conf")
     //      println(s"INSIDE: dataDir = ${conf.getStrings("dfs.datanode.data.dir", "none").head}")
     //      val fs = org.apache.hadoop.fs.FileSystem.get(conf)
     //      println(s"INSIDE: home = ${fs.getHomeDirectory.toString}")
     //
-    //
     //      consumeFirstStringMessageFrom("topic") shouldBe "message"
 
 
+  }
+
+  private def sendTextToKafka(fileName: String, bootstrapServers: String): Unit = {
+    val producer = topicProducer(bootstrapServers)
+    for (line <- pathToFile andThen readFile apply fileName) {
+      producer.send(new ProducerRecord[String, String](topic, line))
+        .get(1000L, TimeUnit.MILLISECONDS)
+    }
+    producer.close(Duration.ofMillis(1000L))
   }
 
   private def topicProducer(bootstrapServers: String): KafkaProducer[String, String] = {
