@@ -1,9 +1,11 @@
 package es.eriktorr.katas
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
+import com.dimafeng.testcontainers.{ForAllTestContainer, KafkaContainer}
+
 import com.holdenkarau.spark.testing.SharedSparkContext
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.StringSerializer
@@ -14,7 +16,7 @@ import scala.language.implicitConversions
 
 class WordFrequencyApplicationAcceptance extends FlatSpec
   with Matchers with BeforeAndAfter
-  with EmbeddedKafka with SharedSparkContext {
+  with ForAllTestContainer with SharedSparkContext {
 
   /*
   a) Read text from kafka topic.
@@ -22,6 +24,7 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
   c) Write frequency to HDFS.
    */
 
+  override val container = KafkaContainer()
   private val topic = "word-frequency"
 
   before {
@@ -32,19 +35,18 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
     println(s"BEFORE: home = ${fs.getHomeDirectory.toString}")
   }
 
-  "Word frequency counter" should "find the top 25 most used words in a file" in {
-    val kafkaConfig = EmbeddedKafkaConfig(kafkaPort = 0, zooKeeperPort = 0)
-    withRunningKafkaOnFoundPort(kafkaConfig) { implicit actualKafkaConfig =>
-      val bootstrapServers = s":${actualKafkaConfig.kafkaPort}"
+  "Word frequency counter" should "find the top 25 most used words in a message" in {
+    val bootstrapServers = container.kafkaContainer.getBootstrapServers
 
-      val producer = topicProducer(bootstrapServers)
-      val recordMetadata = producer.send(new ProducerRecord[String, String](topic, "this is a message"))
-        .get(1000L, TimeUnit.MILLISECONDS)
-      println(s"\n\n >> HERE[producer]: topic=${recordMetadata.topic()}, partition=${recordMetadata.partition()}, offset=${recordMetadata.offset()}\n")
+    val producer = topicProducer(bootstrapServers)
+    producer.send(new ProducerRecord[String, String](topic, "this is a message"))
+      .get(1000L, TimeUnit.MILLISECONDS)
+    producer.close(Duration.ofMillis(1000L))
 
-      WordFrequencyApplication.doRun(sc, Array(
-        bootstrapServers,
-        topic))
+    WordFrequencyApplication.doRun(sc, Array(
+      bootstrapServers,
+      topic))
+
 
       //
       //
@@ -57,14 +59,13 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
       //
       //
       //      consumeFirstStringMessageFrom("topic") shouldBe "message"
-    }
+
 
   }
 
   private def topicProducer(bootstrapServers: String): KafkaProducer[String, String] = {
     val kafkaConfiguration = Map[String, AnyRef](
-      ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG -> bootstrapServers,
-      ConsumerConfig.GROUP_ID_CONFIG -> "kafka-sandbox"
+      ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG -> bootstrapServers
     ).asJava
 
     val keySerializer = new StringSerializer

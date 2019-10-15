@@ -11,7 +11,8 @@ val sparkTestingBaseVersion = "2.4.3_0.12.0"
 
 libraryDependencies ++= Seq(
   "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-  "io.github.embeddedkafka" %% "embedded-kafka" % kafkaVersion % Test,
+  "com.dimafeng" %% "testcontainers-scala" % "0.33.0" % Test,
+  "org.testcontainers" % "kafka" % "1.12.2" % Test,
   "org.apache.spark" %% "spark-core" % "2.4.4",
   "com.holdenkarau" %% "spark-testing-base" % sparkTestingBaseVersion % Test,
   "com.holdenkarau" %% "spark-testing-kafka-0_8" % sparkTestingBaseVersion % Test

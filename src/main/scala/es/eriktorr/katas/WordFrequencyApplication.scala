@@ -18,9 +18,7 @@ object WordFrequencyApplication {
 
     val topicConsumer = new TopicConsumer(bootstrapServers, topics)
     val value = topicConsumer.consume
-    println(s"\n\n >> HERE: $value\n")
-
-    // TODO
+    println(s"\n\n >> HERE: $value\n") // TODO
   }
 
   private def listFrom: String => List[String] = _.split(",").toList

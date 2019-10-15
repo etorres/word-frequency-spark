@@ -12,7 +12,8 @@ class TopicConsumer(private val bootstrapServers: String, private val topics: Li
 
   private val kafkaConfiguration = Map[String, AnyRef](
     ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG -> bootstrapServers,
-    ConsumerConfig.GROUP_ID_CONFIG -> "kafka-sandbox",
+    ConsumerConfig.AUTO_OFFSET_RESET_CONFIG -> "earliest",
+    ConsumerConfig.GROUP_ID_CONFIG -> "test-consumer-group",
     ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG -> true.toString,
     ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG -> 1000.toString
   ).asJava
@@ -25,13 +26,8 @@ class TopicConsumer(private val bootstrapServers: String, private val topics: Li
   kafkaConsumer.subscribe(topics.asJava)
 
   def consume: String = {
-
-    // TODO
-    for ((k,v) <- kafkaConsumer.listTopics().asScala) println(s"\n\n >> HERE[consumer]: topic=[key: $k, value: $v]\n")
-    // TODO
-
-    val records = kafkaConsumer.poll(Duration.ofMillis(1000L))
-    records.asScala.map(_.value()).head
+    val records = kafkaConsumer.poll(Duration.ofMillis(1000L)).asScala
+    records.map(_.value()).head
   }
 
 }
