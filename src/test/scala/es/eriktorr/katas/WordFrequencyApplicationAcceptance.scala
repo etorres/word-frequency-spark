@@ -4,19 +4,17 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.dimafeng.testcontainers.{ForAllTestContainer, KafkaContainer}
-
 import com.holdenkarau.spark.testing.SharedSparkContext
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.StringSerializer
-import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.collection.JavaConverters._
+import scala.io.Source
 import scala.language.implicitConversions
 
-class WordFrequencyApplicationAcceptance extends FlatSpec
-  with Matchers with BeforeAndAfter
-  with ForAllTestContainer with SharedSparkContext {
+class WordFrequencyApplicationAcceptance extends FlatSpec with Matchers with ForAllTestContainer with SharedSparkContext {
 
   /*
   a) Read text from kafka topic.
@@ -27,20 +25,14 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
   override val container = KafkaContainer()
   private val topic = "word-frequency"
 
-  before {
-    val conf = sc.hadoopConfiguration
-    println(s"BEFORE: config = $conf")
-    println(s"BEFORE: dataDir = ${conf.getStrings("dfs.datanode.data.dir", "none").head}")
-    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
-    println(s"BEFORE: home = ${fs.getHomeDirectory.toString}")
-  }
-
-  "Word frequency counter" should "find the top 25 most used words in a message" in {
+  "Word frequency counter" should "find the top 25 most used words in the messages read from a Kafka topic" in {
     val bootstrapServers = container.kafkaContainer.getBootstrapServers
 
     val producer = topicProducer(bootstrapServers)
-    producer.send(new ProducerRecord[String, String](topic, "this is a message"))
-      .get(1000L, TimeUnit.MILLISECONDS)
+    for (line <- pathToFile andThen readFile apply "data/the-fall-of-the-house-of-usher.txt") {
+      producer.send(new ProducerRecord[String, String](topic, line))
+        .get(1000L, TimeUnit.MILLISECONDS)
+    }
     producer.close(Duration.ofMillis(1000L))
 
     WordFrequencyApplication.doRun(sc, Array(
@@ -48,17 +40,17 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
       topic))
 
 
-      //
-      //
-      //
-      //      val conf = sc.hadoopConfiguration
-      //      println(s"INSIDE: config = $conf")
-      //      println(s"INSIDE: dataDir = ${conf.getStrings("dfs.datanode.data.dir", "none").head}")
-      //      val fs = org.apache.hadoop.fs.FileSystem.get(conf)
-      //      println(s"INSIDE: home = ${fs.getHomeDirectory.toString}")
-      //
-      //
-      //      consumeFirstStringMessageFrom("topic") shouldBe "message"
+    //
+    //
+    //
+    //      val conf = sc.hadoopConfiguration
+    //      println(s"INSIDE: config = $conf")
+    //      println(s"INSIDE: dataDir = ${conf.getStrings("dfs.datanode.data.dir", "none").head}")
+    //      val fs = org.apache.hadoop.fs.FileSystem.get(conf)
+    //      println(s"INSIDE: home = ${fs.getHomeDirectory.toString}")
+    //
+    //
+    //      consumeFirstStringMessageFrom("topic") shouldBe "message"
 
 
   }
@@ -72,6 +64,20 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
     val valueSerializer = new StringSerializer
 
     new KafkaProducer[String, String](kafkaConfiguration, keySerializer, valueSerializer)
+  }
+
+  private val pathToFile: String => String = {
+    getClass.getClassLoader.getResource(_).getPath
+  }
+
+  private val readFile: String => List[String] = (fileName: String) => {
+    val source = Source.fromFile(fileName)
+    val lines = source.getLines
+      .flatMap((line: String) => line.split(","))
+      .filter(_.nonEmpty)
+      .toList
+    source.close()
+    lines
   }
 
 }

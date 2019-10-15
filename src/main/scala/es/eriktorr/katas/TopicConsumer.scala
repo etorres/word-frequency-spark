@@ -15,7 +15,7 @@ class TopicConsumer(private val bootstrapServers: String, private val topics: Li
     ConsumerConfig.AUTO_OFFSET_RESET_CONFIG -> "earliest",
     ConsumerConfig.GROUP_ID_CONFIG -> "test-consumer-group",
     ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG -> true.toString,
-    ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG -> 1000.toString
+    ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG -> 5000.toString
   ).asJava
 
   private val keyDeserializer = new StringDeserializer
@@ -27,7 +27,7 @@ class TopicConsumer(private val bootstrapServers: String, private val topics: Li
 
   def consume: String = {
     val records = kafkaConsumer.poll(Duration.ofMillis(1000L)).asScala
-    records.map(_.value()).head
+    records.map(_.value()).last
   }
 
 }
