@@ -17,7 +17,7 @@ object WordFrequencyApplication {
     val topics = listFrom(args(1))
 
     val wordStreamReader = new WordStreamReader(bootstrapServers, args(1))
-    wordStreamReader.kk()
+    wordStreamReader.wordFrequency()
 
 //    val topicConsumer = new TopicConsumer(bootstrapServers, topics)
 //    val value = topicConsumer.consume

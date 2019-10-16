@@ -6,7 +6,9 @@ import scala.language.implicitConversions
 
 class WordStreamReader(private val bootstrapServers: String, private val topic: String) {
 
-  private val sparkSession = SparkSession.builder().getOrCreate()
+  private val sparkSession = SparkSession.builder
+    .appName("Word-Frequency-Counter")
+    .getOrCreate
   import sparkSession.implicits._
 
   private val dataFrame = sparkSession.readStream
@@ -19,13 +21,15 @@ class WordStreamReader(private val bootstrapServers: String, private val topic: 
     .option("value.serializer", "org.apache.kafka.common.serialization.StringDeserializer")
     .load()
 
-  def kk(): Unit = {
+  def wordFrequency(): Unit = {
     dataFrame.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
       .as[(String, String)]
+//      .flatMap()
 
     dataFrame.writeStream
       .format("console")
       .outputMode("append")
+      .option("truncate","false")
       .start()
       .awaitTermination(1000L)
   }
