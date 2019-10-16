@@ -26,12 +26,11 @@ class WordFrequencyApplicationAcceptance extends FlatSpec with Matchers with For
   private val topic = "word-frequency"
 
   "Word frequency counter" should "find the top 25 most used words a text read from Kafka" in {
-    sendTextToKafka("data/the-fall-of-the-house-of-usher.txt", container.kafkaContainer.getBootstrapServers)
-
     WordFrequencyApplication.doRun(sc, Array(
-      container.kafkaContainer.getBootstrapServers,
-      topic))
+        container.kafkaContainer.getBootstrapServers,
+        topic))
 
+    sendTextToKafka("data/the-fall-of-the-house-of-usher.txt", container.kafkaContainer.getBootstrapServers)
 
     //      val conf = sc.hadoopConfiguration
     //      println(s"INSIDE: config = $conf")
@@ -50,7 +49,7 @@ class WordFrequencyApplicationAcceptance extends FlatSpec with Matchers with For
       producer.send(new ProducerRecord[String, String](topic, line))
         .get(1000L, TimeUnit.MILLISECONDS)
     }
-    producer.close(Duration.ofMillis(1000L))
+    producer.close(1000L, TimeUnit.MILLISECONDS)
   }
 
   private def topicProducer(bootstrapServers: String): KafkaProducer[String, String] = {
