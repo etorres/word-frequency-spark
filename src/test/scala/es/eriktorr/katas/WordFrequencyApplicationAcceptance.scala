@@ -1,20 +1,23 @@
 package es.eriktorr.katas
 
-import java.time.Duration
+import java.net.URI
 import java.util.concurrent.TimeUnit
 
 import com.dimafeng.testcontainers.{ForAllTestContainer, KafkaContainer}
-import com.holdenkarau.spark.testing.SharedSparkContext
+import com.holdenkarau.spark.testing.{HDFSCluster, SharedSparkContext}
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.serialization.StringSerializer
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 import scala.collection.JavaConverters._
 import scala.io.Source
 import scala.language.implicitConversions
 
-class WordFrequencyApplicationAcceptance extends FlatSpec with Matchers with ForAllTestContainer with SharedSparkContext {
+class WordFrequencyApplicationAcceptance extends FlatSpec
+  with Matchers with BeforeAndAfter
+  with ForAllTestContainer with SharedSparkContext {
 
   /*
   a) Read text from kafka topic.
@@ -25,7 +28,26 @@ class WordFrequencyApplicationAcceptance extends FlatSpec with Matchers with For
   override val container = KafkaContainer()
   private val topic = "word-frequency"
 
+  var hdfsCluster: HDFSCluster = null
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    hdfsCluster = new HDFSCluster
+    hdfsCluster.startHDFS()
+  }
+
+  override def afterAll() {
+    hdfsCluster.shutdownHDFS()
+    super.afterAll()
+  }
+
   "Word frequency counter" should "find the top 25 most used words a text read from Kafka" in {
+    val hadoopConfiguration = sc.hadoopConfiguration
+    val nameNodeHttpAddress = hadoopConfiguration.getStrings("dfs.namenode.servicerpc-address", "localhost:8020").head
+
+    val hadoopFileSystem = FileSystem.get(URI.create(s"hdfs://${nameNodeHttpAddress}/user/erik_torres"), hadoopConfiguration)
+    hadoopFileSystem.mkdirs(new Path(hadoopFileSystem.getWorkingDirectory, "/checkpoints/word-frequency-query"))
+
     WordFrequencyApplication.doRun(sc, Array(
         container.kafkaContainer.getBootstrapServers,
         topic))
