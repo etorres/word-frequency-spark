@@ -28,12 +28,14 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
   override val container = KafkaContainer()
   private val topic = "word-frequency"
 
-  var hdfsCluster: HDFSCluster = _
+  private var hdfsCluster: HDFSCluster = _
 
   override def beforeAll(): Unit = {
     super.beforeAll()
     hdfsCluster = new HDFSCluster
     hdfsCluster.startHDFS()
+
+    checkpointDirectory apply "word-frequency-query"
   }
 
   override def afterAll() {
@@ -42,17 +44,12 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
   }
 
   "Word frequency counter" should "find the top 25 most used words a text read from Kafka" in {
-    val hadoopConfiguration = sc.hadoopConfiguration
-    val nameNodeAddress = hadoopConfiguration.getStrings("dfs.namenode.servicerpc-address", "localhost:8020").head
+    sendTextToKafka("data/the-fall-of-the-house-of-usher.txt", container.kafkaContainer.getBootstrapServers)
 
-    val hadoopFileSystem = FileSystem.get(URI.create(s"hdfs://${nameNodeAddress}/user/erik_torres"), hadoopConfiguration)
-    hadoopFileSystem.mkdirs(new Path(hadoopFileSystem.getWorkingDirectory, "/checkpoints/word-frequency-query"))
-
-    WordFrequencyApplication.doRun(sc, Array(
+    WordFrequencyApplication.doRun(Array(
         container.kafkaContainer.getBootstrapServers,
         topic))
 
-    sendTextToKafka("data/the-fall-of-the-house-of-usher.txt", container.kafkaContainer.getBootstrapServers)
 
     //      val conf = sc.hadoopConfiguration
     //      println(s"INSIDE: config = $conf")
@@ -63,7 +60,7 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
     //      consumeFirstStringMessageFrom("topic") shouldBe "message"
 
 
-//    Thread.sleep(60000)
+    //    Thread.sleep(60000)
   }
 
   private def sendTextToKafka(fileName: String, bootstrapServers: String): Unit = {
@@ -98,6 +95,14 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
       .toList
     source.close()
     lines
+  }
+
+  private val checkpointDirectory: String => Boolean = (checkpointName: String) => {
+    val hadoopConfiguration = sc.hadoopConfiguration
+    val nameNodeAddress = hadoopConfiguration.getStrings("dfs.namenode.servicerpc-address", "localhost:8020").head
+
+    val hadoopFileSystem = FileSystem.get(URI.create(s"hdfs://$nameNodeAddress/user/erik_torres"), hadoopConfiguration)
+    hadoopFileSystem.mkdirs(new Path(hadoopFileSystem.getWorkingDirectory, s"/checkpoints/$checkpointName"))
   }
 
 }
