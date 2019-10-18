@@ -19,10 +19,11 @@ object WordFrequencyApplication {
 
   def doRun(args: Array[String]): Unit = {
     val bootstrapServers = args(0)
-    val topics = args(1)
-    val checkpointLocation = args(2)
+    val inTopics = args(1)
+    val outTopics = args(2)
+    val checkpointLocation = args(3)
 
-    val wordStreamReader = new WordStreamReader(bootstrapServers, topics, checkpointLocation)
+    val wordStreamReader = new WordStreamFrequencyCounter(bootstrapServers, inTopics, outTopics, checkpointLocation)
     wordStreamReader.topTenWordFrequency()
   }
 

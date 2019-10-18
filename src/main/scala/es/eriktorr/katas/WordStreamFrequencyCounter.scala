@@ -10,7 +10,10 @@ import org.apache.spark.sql.types.StringType
 import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
 
-class WordStreamReader(private val bootstrapServers: String, private val topic: String, private val checkpointLocation: String) {
+class WordStreamFrequencyCounter(private val bootstrapServers: String,
+                                 private val inTopics: String,
+                                 private val outTopics: String,
+                                 private val checkpointLocation: String) {
 
   private val sparkSession = SparkSession.builder.getOrCreate
   import sparkSession.implicits._
@@ -18,9 +21,9 @@ class WordStreamReader(private val bootstrapServers: String, private val topic: 
   private val dataFrame = sparkSession.readStream
     .format("kafka")
     .option("kafka.bootstrap.servers", bootstrapServers)
-    .option("subscribe", topic)
+    .option("subscribe", inTopics)
     .option("startingOffsets", "earliest")
-    .option("group.id", "word-stream-reader-consumer-group")
+    .option("group.id", "word-stream-frequency-counter")
     .load()
 
   def topTenWordFrequency(): Unit = {
@@ -42,15 +45,29 @@ class WordStreamReader(private val bootstrapServers: String, private val topic: 
       .limit(10)
       .as[WordFrequency]
 
-    windowedCounts.writeStream
+    windowedCounts
+      .withColumn("key", 'word)
+      .withColumn("value", 'count.cast(StringType))
+      .writeStream
       .queryName("word-frequency-query")
       .outputMode(OutputMode.Complete)
-      .format("console")
-      .option("truncate", "false")
+      .format("kafka")
+      .option("kafka.bootstrap.servers", bootstrapServers)
+      .option("topic", outTopics)
       .option("checkpointLocation", checkpointLocation)
       .trigger(Trigger.ProcessingTime(Duration.create(2, TimeUnit.SECONDS)))
       .start()
       .awaitTermination(30000L)
+
+    //    windowedCounts.writeStream
+    //      .queryName("word-frequency-query")
+    //      .outputMode(OutputMode.Complete)
+    //      .format("console")
+    //      .option("truncate", "false")
+    //      .option("checkpointLocation", checkpointLocation)
+    //      .trigger(Trigger.ProcessingTime(Duration.create(2, TimeUnit.SECONDS)))
+    //      .start()
+    //      .awaitTermination(30000L)
   }
 
 }
