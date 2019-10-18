@@ -28,7 +28,7 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
   override val container = KafkaContainer()
   private val topic = "word-frequency"
 
-  var hdfsCluster: HDFSCluster = null
+  var hdfsCluster: HDFSCluster = _
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -43,9 +43,9 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
 
   "Word frequency counter" should "find the top 25 most used words a text read from Kafka" in {
     val hadoopConfiguration = sc.hadoopConfiguration
-    val nameNodeHttpAddress = hadoopConfiguration.getStrings("dfs.namenode.servicerpc-address", "localhost:8020").head
+    val nameNodeAddress = hadoopConfiguration.getStrings("dfs.namenode.servicerpc-address", "localhost:8020").head
 
-    val hadoopFileSystem = FileSystem.get(URI.create(s"hdfs://${nameNodeHttpAddress}/user/erik_torres"), hadoopConfiguration)
+    val hadoopFileSystem = FileSystem.get(URI.create(s"hdfs://${nameNodeAddress}/user/erik_torres"), hadoopConfiguration)
     hadoopFileSystem.mkdirs(new Path(hadoopFileSystem.getWorkingDirectory, "/checkpoints/word-frequency-query"))
 
     WordFrequencyApplication.doRun(sc, Array(
@@ -63,6 +63,7 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
     //      consumeFirstStringMessageFrom("topic") shouldBe "message"
 
 
+//    Thread.sleep(60000)
   }
 
   private def sendTextToKafka(fileName: String, bootstrapServers: String): Unit = {
