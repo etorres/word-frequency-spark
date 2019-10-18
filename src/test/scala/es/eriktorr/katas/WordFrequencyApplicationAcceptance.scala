@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.concurrent.TimeUnit
 
 import com.dimafeng.testcontainers.{ForAllTestContainer, KafkaContainer}
-import com.holdenkarau.spark.testing.{HDFSCluster, SharedSparkContext}
+import com.holdenkarau.spark.testing.SharedSparkContext
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
@@ -27,40 +27,22 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
 
   override val container = KafkaContainer()
   private val topic = "word-frequency"
-
-  private var hdfsCluster: HDFSCluster = _
+  private var checkpointLocation: String = _
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    hdfsCluster = new HDFSCluster
-    hdfsCluster.startHDFS()
-
-    checkpointDirectory apply "word-frequency-query"
-  }
-
-  override def afterAll() {
-    hdfsCluster.shutdownHDFS()
-    super.afterAll()
+    checkpointLocation = makeCheckpointDirectory apply WordFrequencyApplication.ApplicationName
   }
 
   "Word frequency counter" should "find the top 25 most used words a text read from Kafka" in {
     sendTextToKafka("data/the-fall-of-the-house-of-usher.txt", container.kafkaContainer.getBootstrapServers)
 
     WordFrequencyApplication.doRun(Array(
-        container.kafkaContainer.getBootstrapServers,
-        topic))
+      container.kafkaContainer.getBootstrapServers,
+      topic,
+      checkpointLocation))
 
-
-    //      val conf = sc.hadoopConfiguration
-    //      println(s"INSIDE: config = $conf")
-    //      println(s"INSIDE: dataDir = ${conf.getStrings("dfs.datanode.data.dir", "none").head}")
-    //      val fs = org.apache.hadoop.fs.FileSystem.get(conf)
-    //      println(s"INSIDE: home = ${fs.getHomeDirectory.toString}")
-    //
-    //      consumeFirstStringMessageFrom("topic") shouldBe "message"
-
-
-    //    Thread.sleep(60000)
+    // TODO: Add assertion here
   }
 
   private def sendTextToKafka(fileName: String, bootstrapServers: String): Unit = {
@@ -97,12 +79,13 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
     lines
   }
 
-  private val checkpointDirectory: String => Boolean = (checkpointName: String) => {
-    val hadoopConfiguration = sc.hadoopConfiguration
-    val nameNodeAddress = hadoopConfiguration.getStrings("dfs.namenode.servicerpc-address", "localhost:8020").head
-
-    val hadoopFileSystem = FileSystem.get(URI.create(s"hdfs://$nameNodeAddress/user/erik_torres"), hadoopConfiguration)
-    hadoopFileSystem.mkdirs(new Path(hadoopFileSystem.getWorkingDirectory, s"/checkpoints/$checkpointName"))
+  private val makeCheckpointDirectory: String => String = (checkpointName: String) => {
+    val hadoopFileSystem = FileSystem.get(
+      URI.create(sc.getCheckpointDir.get),
+      sc.hadoopConfiguration)
+    val checkpointPath = new Path(sc.getCheckpointDir.get, checkpointName)
+    hadoopFileSystem.mkdirs(checkpointPath)
+    checkpointPath.toString
   }
 
 }

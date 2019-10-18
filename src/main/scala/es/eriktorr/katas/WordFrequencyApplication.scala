@@ -4,9 +4,11 @@ import org.apache.spark.sql.SparkSession
 
 object WordFrequencyApplication {
 
+  val ApplicationName = "word-frequency-counter"
+
   def main(args: Array[String]): Unit = {
     val sparkSession = SparkSession.builder
-      .appName("Word-Frequency-Counter")
+      .appName(ApplicationName)
       .master("local[*]")
       .getOrCreate()
 
@@ -18,11 +20,10 @@ object WordFrequencyApplication {
   def doRun(args: Array[String]): Unit = {
     val bootstrapServers = args(0)
     val topics = args(1)
+    val checkpointLocation = args(2)
 
-    val wordStreamReader = new WordStreamReader(bootstrapServers, topics)
+    val wordStreamReader = new WordStreamReader(bootstrapServers, topics, checkpointLocation)
     wordStreamReader.wordFrequency()
   }
-
-  private def listFrom: String => List[String] = _.split(",").toList
 
 }

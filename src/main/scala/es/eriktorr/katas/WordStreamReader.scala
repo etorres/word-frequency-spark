@@ -2,7 +2,6 @@ package es.eriktorr.katas
 
 import java.util.concurrent.TimeUnit
 
-import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.{OutputMode, Trigger}
@@ -11,12 +10,10 @@ import org.apache.spark.sql.types.StringType
 import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
 
-class WordStreamReader(private val bootstrapServers: String, private val topic: String) {
+class WordStreamReader(private val bootstrapServers: String, private val topic: String, private val checkpointLocation: String) {
 
   private val sparkSession = SparkSession.builder.getOrCreate
   import sparkSession.implicits._
-
-  private val nameNodeAddress = hadoopNameNodeAddress apply sparkSession.sparkContext.hadoopConfiguration
 
   private val dataFrame = sparkSession.readStream
     .format("kafka")
@@ -50,13 +47,10 @@ class WordStreamReader(private val bootstrapServers: String, private val topic: 
       .outputMode(OutputMode.Complete)
       .format("console")
       .option("truncate", "false")
-      .option("checkpointLocation", s"hdfs://$nameNodeAddress/user/erik_torres/checkpoints/word-frequency-query")
+      .option("checkpointLocation", checkpointLocation)
       .trigger(Trigger.ProcessingTime(Duration.create(2, TimeUnit.SECONDS)))
       .start()
       .awaitTermination(30000L)
   }
-
-  private def hadoopNameNodeAddress: Configuration => String =
-    _.getStrings("dfs.namenode.servicerpc-address", "localhost:8020").head
 
 }
