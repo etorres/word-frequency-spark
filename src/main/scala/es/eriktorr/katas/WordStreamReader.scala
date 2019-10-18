@@ -4,7 +4,6 @@ import java.util.concurrent.TimeUnit
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.{OutputMode, Trigger}
 import org.apache.spark.sql.types.StringType
@@ -24,7 +23,7 @@ class WordStreamReader(private val bootstrapServers: String, private val topic: 
     .option("kafka.bootstrap.servers", bootstrapServers)
     .option("subscribe", topic)
     .option("startingOffsets", "earliest")
-    .option("group.id", "kafka-sandbox-consumer-group")
+    .option("group.id", "word-stream-reader-consumer-group")
     .load()
 
   def wordFrequency(): Unit = {
@@ -36,13 +35,15 @@ class WordStreamReader(private val bootstrapServers: String, private val topic: 
       .withColumn("word", lower(trim('word)))
       .where(length('word) > 0)
       .select('word, 'timestamp)
+      .as[Word]
 
     val windowedCounts = words
       .withWatermark("timestamp", "4 seconds")
       .groupBy("word")
       .count()
-      .withColumn("rank", rank().over(Window.partitionBy('xxx).orderBy('count.desc)))
-      .where('rank < 5)
+      .orderBy('count.desc)
+      .limit(5)
+      .as[WordFrequency]
 
     windowedCounts.writeStream
       .queryName("Word-Frequency-Query")
