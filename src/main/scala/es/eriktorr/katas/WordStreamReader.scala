@@ -1,11 +1,15 @@
 package es.eriktorr.katas
 
+import java.util.concurrent.TimeUnit
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.streaming.OutputMode
+import org.apache.spark.sql.streaming.{OutputMode, Trigger}
 import org.apache.spark.sql.types.StringType
 
+import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
 
 class WordStreamReader(private val bootstrapServers: String, private val topic: String) {
@@ -34,19 +38,21 @@ class WordStreamReader(private val bootstrapServers: String, private val topic: 
       .select('word, 'timestamp)
 
     val windowedCounts = words
-      .withWatermark("timestamp", "10 seconds")
+      .withWatermark("timestamp", "4 seconds")
       .groupBy("word")
       .count()
+      .withColumn("rank", rank().over(Window.partitionBy('xxx).orderBy('count.desc)))
+      .where('rank < 5)
 
     windowedCounts.writeStream
       .queryName("Word-Frequency-Query")
-      .outputMode(OutputMode.Update)
+      .outputMode(OutputMode.Complete)
       .format("console")
       .option("truncate", "false")
       .option("checkpointLocation", s"hdfs://$nameNodeAddress/user/erik_torres/checkpoints/word-frequency-query")
+      .trigger(Trigger.ProcessingTime(Duration.create(2, TimeUnit.SECONDS)))
       .start()
-      //      .awaitTermination()
-      .awaitTermination(10000L)
+      .awaitTermination(30000L)
   }
 
   private def hadoopNameNodeAddress: Configuration => String =
