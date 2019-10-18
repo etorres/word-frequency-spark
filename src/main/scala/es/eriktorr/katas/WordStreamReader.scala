@@ -23,7 +23,7 @@ class WordStreamReader(private val bootstrapServers: String, private val topic: 
     .option("group.id", "word-stream-reader-consumer-group")
     .load()
 
-  def wordFrequency(): Unit = {
+  def topTenWordFrequency(): Unit = {
     val words = dataFrame
       .withColumn("keyCasted", 'key.cast(StringType))
       .withColumn("valueCasted", 'value.cast(StringType))
@@ -39,11 +39,11 @@ class WordStreamReader(private val bootstrapServers: String, private val topic: 
       .groupBy("word")
       .count()
       .orderBy('count.desc)
-      .limit(5)
+      .limit(10)
       .as[WordFrequency]
 
     windowedCounts.writeStream
-      .queryName("Word-Frequency-Query")
+      .queryName("word-frequency-query")
       .outputMode(OutputMode.Complete)
       .format("console")
       .option("truncate", "false")

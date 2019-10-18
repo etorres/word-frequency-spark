@@ -22,7 +22,7 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
   /*
   a) Read text from kafka topic.
   b) Find word frequency in text.
-  c) Write frequency to HDFS.
+  c) Write frequency to another kafka topic.
    */
 
   override val container = KafkaContainer()
@@ -34,7 +34,7 @@ class WordFrequencyApplicationAcceptance extends FlatSpec
     checkpointLocation = makeCheckpointDirectory apply WordFrequencyApplication.ApplicationName
   }
 
-  "Word frequency counter" should "find the top 25 most used words a text read from Kafka" in {
+  "Word frequency counter" should "find the top 10 most used words a text read from Kafka" in {
     sendTextToKafka("data/the-fall-of-the-house-of-usher.txt", container.kafkaContainer.getBootstrapServers)
 
     WordFrequencyApplication.doRun(Array(

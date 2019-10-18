@@ -23,7 +23,7 @@ object WordFrequencyApplication {
     val checkpointLocation = args(2)
 
     val wordStreamReader = new WordStreamReader(bootstrapServers, topics, checkpointLocation)
-    wordStreamReader.wordFrequency()
+    wordStreamReader.topTenWordFrequency()
   }
 
 }
