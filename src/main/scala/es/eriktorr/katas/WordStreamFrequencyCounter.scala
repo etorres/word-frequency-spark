@@ -2,7 +2,7 @@ package es.eriktorr.katas
 
 import java.util.concurrent.TimeUnit
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.{OutputMode, Trigger}
 import org.apache.spark.sql.types.StringType
@@ -27,15 +27,7 @@ class WordStreamFrequencyCounter(private val bootstrapServers: String,
     .load()
 
   def topTenWordFrequency(): Unit = {
-    val words = dataFrame
-      .withColumn("keyCasted", 'key.cast(StringType))
-      .withColumn("valueCasted", 'value.cast(StringType))
-      .withColumn("words", split('valueCasted, "\\s+"))
-      .withColumn("word", explode('words))
-      .withColumn("word", lower(trim('word)))
-      .where(length('word) > 0)
-      .select('word, 'timestamp)
-      .as[Word]
+    val words = wordsFrom(dataFrame)
 
     val windowedCounts = words
       .withWatermark("timestamp", "4 seconds")
@@ -68,6 +60,18 @@ class WordStreamFrequencyCounter(private val bootstrapServers: String,
     //      .trigger(Trigger.ProcessingTime(Duration.create(2, TimeUnit.SECONDS)))
     //      .start()
     //      .awaitTermination(30000L)
+  }
+
+  def wordsFrom(input: DataFrame): Dataset[Word] = {
+    input
+      .withColumn("keyCasted", 'key.cast(StringType))
+      .withColumn("valueCasted", 'value.cast(StringType))
+      .withColumn("words", split('valueCasted, "\\s+"))
+      .withColumn("word", explode('words))
+      .withColumn("word", lower(trim('word)))
+      .where(length('word) > 0)
+      .select('word, 'timestamp)
+      .as[Word]
   }
 
 }
