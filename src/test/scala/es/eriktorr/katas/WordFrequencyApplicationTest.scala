@@ -8,8 +8,8 @@ import com.holdenkarau.spark.testing.DatasetGenerator.genDataset
 import com.holdenkarau.spark.testing.{Column, SharedSparkContext}
 import org.apache.spark.sql.types.{LongType, StringType, StructField, StructType}
 import org.apache.spark.sql.{Dataset, SparkSession}
+import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
-import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.FunSuite
 import org.scalatest.prop.Checkers
 
@@ -61,21 +61,27 @@ class WordFrequencyApplicationTest extends FunSuite with SharedSparkContext with
     val datasetGenerator: Gen[Dataset[Word]] =
       genDataset[Word](sparkSession.sqlContext) {
         val generator: Gen[Word] = for {
-          word <- Arbitrary.arbitrary[String]
+          word <- Gen.oneOf("precipitous", "lurid", "dwelling", "shudder", "thrilling")
           timestamp <- timestampGen
         } yield Word(word, timestamp)
 
         generator
       }
 
+    val wordStreamFrequencyCounter = new WordStreamFrequencyCounter(
+      "bootstrapServers",
+      "inTopics",
+      "outTopics",
+      "checkpointLocation")
+
     val property =
       forAll(datasetGenerator) {
-        dataset => dataset.map(_.word).count() == dataset.count()
+        dataset => wordStreamFrequencyCounter.topTenMostCommon(dataset, 4).filter(
+          "(word != 'precipitous' AND word != 'lurid' AND word != 'dwelling' AND word != 'shudder' AND word != 'thrilling') OR" +
+            "(count < 0)").count() == 0
       }
 
     check(property)
-
-    fail("feature under development") // TODO
   }
 
 }
