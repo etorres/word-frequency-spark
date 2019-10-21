@@ -11,8 +11,11 @@ import org.scalatest.prop.Checkers
 
 class WordFrequencyApplicationTest extends FunSuite with SharedSparkContext with Checkers {
 
-  test("test multiple columns generators") {
+  test("converts lines of text into words reusing timestamps") {
     val sparkSession = SparkSession.builder().getOrCreate()
+
+    val lowerTimestamp: Long = 1571501812L
+    val upperTimestamp: Long = 1571652348L
 
     val schema = StructType(List(StructField("key", StringType), StructField("value", StringType), StructField("timestamp", LongType)))
     val keyGenerator = new Column("key", Gen.const(null))
@@ -20,7 +23,7 @@ class WordFrequencyApplicationTest extends FunSuite with SharedSparkContext with
       "precipitous lurid dwelling shudder thrilling",
       "lurid precipitous thrilling",
       "dwelling lurid precipitous"))
-    val timestampGenerator = new Column("timestamp", Gen.choose(1571501812L, 1900000000L))
+    val timestampGenerator = new Column("timestamp", Gen.choose(lowerTimestamp, upperTimestamp))
     val dataFrameGenerator = arbitraryDataFrameWithCustomFields(sparkSession.sqlContext, schema)(keyGenerator, valueGenerator, timestampGenerator)
 
     val wordStreamFrequencyCounter = new WordStreamFrequencyCounter(
@@ -32,9 +35,9 @@ class WordFrequencyApplicationTest extends FunSuite with SharedSparkContext with
     val property =
       forAll(dataFrameGenerator.arbitrary) {
         dataFrame => dataFrame.schema === schema &&
-          wordStreamFrequencyCounter.wordsFrom(dataFrame).filter("(key != null) OR " +
-            "(value != 'precipitous' AND value != 'lurid' AND value != 'dwelling' AND value != 'shudder' AND value != 'thrilling') OR " +
-            "(timestamp > 1900000000 OR timestamp < 1571501812)").count() == 0
+          wordStreamFrequencyCounter.wordsFrom(dataFrame).filter(
+            "(word != 'precipitous' AND word != 'lurid' AND word != 'dwelling' AND word != 'shudder' AND word != 'thrilling') OR " +
+              s"(timestamp > ${upperTimestamp.toString} OR timestamp < ${lowerTimestamp.toString})").count() == 0
       }
 
     check(property)
