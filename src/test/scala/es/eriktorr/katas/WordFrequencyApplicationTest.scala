@@ -1,11 +1,15 @@
 package es.eriktorr.katas
 
+import java.sql.Timestamp
+import java.time.{LocalDateTime, ZoneOffset}
+
 import com.holdenkarau.spark.testing.DataframeGenerator.arbitraryDataFrameWithCustomFields
+import com.holdenkarau.spark.testing.DatasetGenerator.genDataset
 import com.holdenkarau.spark.testing.{Column, SharedSparkContext}
-import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.{LongType, StringType, StructField, StructType}
-import org.scalacheck.Gen
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.scalacheck.Prop.forAll
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.FunSuite
 import org.scalatest.prop.Checkers
 
@@ -14,8 +18,8 @@ class WordFrequencyApplicationTest extends FunSuite with SharedSparkContext with
   test("converts lines of text into words reusing timestamps") {
     val sparkSession = SparkSession.builder().getOrCreate()
 
-    val lowerTimestamp: Long = 1571501812L
-    val upperTimestamp: Long = 1571652348L
+    val lowerTimestamp: Long = LocalDateTime.now().minusMinutes(5).toEpochSecond(ZoneOffset.UTC)
+    val upperTimestamp: Long = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
 
     val schema = StructType(List(StructField("key", StringType), StructField("value", StringType), StructField("timestamp", LongType)))
     val keyGenerator = new Column("key", Gen.const(null))
@@ -45,10 +49,33 @@ class WordFrequencyApplicationTest extends FunSuite with SharedSparkContext with
 
   test("find the 10 most common words in a windowed stream") {
     val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
 
-    
+    val lowerTimestamp: Long = LocalDateTime.now().minusMinutes(5).toEpochSecond(ZoneOffset.UTC)
+    val upperTimestamp: Long = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
 
-    fail("feature under development")
+    val timestampGen: Gen[Timestamp] = {
+      Gen.choose(lowerTimestamp, upperTimestamp).map(new Timestamp(_))
+    }
+
+    val datasetGenerator: Gen[Dataset[Word]] =
+      genDataset[Word](sparkSession.sqlContext) {
+        val generator: Gen[Word] = for {
+          word <- Arbitrary.arbitrary[String]
+          timestamp <- timestampGen
+        } yield Word(word, timestamp)
+
+        generator
+      }
+
+    val property =
+      forAll(datasetGenerator) {
+        dataset => dataset.map(_.word).count() == dataset.count()
+      }
+
+    check(property)
+
+    fail("feature under development") // TODO
   }
 
 }
