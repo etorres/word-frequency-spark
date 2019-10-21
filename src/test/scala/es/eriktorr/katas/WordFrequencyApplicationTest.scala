@@ -43,4 +43,12 @@ class WordFrequencyApplicationTest extends FunSuite with SharedSparkContext with
     check(property)
   }
 
+  test("find the 10 most common words in a windowed stream") {
+    val sparkSession = SparkSession.builder().getOrCreate()
+
+    
+
+    fail("feature under development")
+  }
+
 }
